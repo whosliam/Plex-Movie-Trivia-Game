@@ -1,6 +1,8 @@
-# Scene That Plex
+# Plex Movie Trivia Game
 
 A web-based movie trivia game using your Plex movie library. Watch video clips and guess the movie from multiple choice options.
+
+![Main_Screen](Screenshots/Main.png)
 
 ## Features
 
@@ -10,6 +12,9 @@ A web-based movie trivia game using your Plex movie library. Watch video clips a
 - Mobile-friendly responsive design
 - 10 rounds per game
 
+![Game Screenshot](Screenshots/gameplay.png)
+
+![Game Screenshot](Screenshots/gameplay_2.png)
 ## Quick Start
 
 ### Prerequisites
