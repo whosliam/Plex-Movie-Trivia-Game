@@ -107,7 +107,7 @@ ports:
 
 ## Companion App
 
-Check out the music version: [Name That Plex](https://github.com/whosliam/Plex-Music-Trivia-Game)
+Check out the music version: [Plex-Music-Trivia-Game](https://github.com/whosliam/Plex-Music-Trivia-Game)
 
 ## License
 
