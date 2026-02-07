@@ -1,0 +1,17 @@
+{
+  "name": "scene-that-plex",
+  "version": "1.0.0",
+  "description": "Movie trivia game using Plex library",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": ["plex", "movies", "trivia", "game"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "axios": "^1.6.0",
+    "cors": "^2.8.5"
+  }
+}

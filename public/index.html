@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plex Movie Trivia</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Righteous&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Space Mono', monospace;
+        }
+        
+        .title-font {
+            font-family: 'Righteous', cursive;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+        
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.7; }
+            100% { transform: scale(0.95); opacity: 1; }
+        }
+        
+        @keyframes slide-up {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes spin-slow {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        @keyframes wave {
+            0%, 100% { height: 20%; }
+            50% { height: 80%; }
+        }
+        
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+        
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+        
+        .animate-float { animation: float 3s ease-in-out infinite; }
+        .animate-pulse-ring { animation: pulse-ring 2s ease-in-out infinite; }
+        .animate-slide-up { animation: slide-up 0.5s ease-out forwards; }
+        .animate-spin-slow { animation: spin-slow 20s linear infinite; }
+        
+        .loading-shimmer {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .loading-shimmer::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            animation: shimmer 2s infinite;
+        }
+        
+        .choice-btn {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-origin: center;
+        }
+        
+        .choice-btn:hover {
+            transform: scale(1.05) translateY(-2px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+        
+        .choice-btn:active { transform: scale(0.98); }
+        .wave-bar { animation: wave 0.8s ease-in-out infinite; }
+        
+        .film-strip {
+            background: linear-gradient(90deg, #1a1a1a 0%, #1a1a1a 10%, transparent 10%, transparent 20%, #1a1a1a 20%);
+            position: relative;
+        }
+        
+        
+        video::-webkit-media-controls {
+            display: none !important;
+        }
+        
+        video {
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // SVG Icons
+        const Play = ({ size = 24, className = "" }) => (
+            <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>
+        );
+
+        const Pause = ({ size = 24, className = "" }) => (
+            <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="6" y="4" width="4" height="16"></rect>
+                <rect x="14" y="4" width="4" height="16"></rect>
+            </svg>
+        );
+
+        const RotateCcw = ({ size = 24, className = "" }) => (
+            <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="1 4 1 10 7 10"></polyline>
+                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+            </svg>
+        );
+
+        const Trophy = ({ size = 24, className = "" }) => (
+            <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
+                <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>
+                <path d="M4 22h16"></path>
+                <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path>
+                <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path>
+                <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path>
+            </svg>
+        );
+
+        const Film = ({ size = 24, className = "", style = {} }) => (
+            <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+                <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
+                <line x1="7" y1="2" x2="7" y2="22"></line>
+                <line x1="17" y1="2" x2="17" y2="22"></line>
+                <line x1="2" y1="12" x2="22" y2="12"></line>
+                <line x1="2" y1="7" x2="7" y2="7"></line>
+                <line x1="2" y1="17" x2="7" y2="17"></line>
+                <line x1="17" y1="17" x2="22" y2="17"></line>
+                <line x1="17" y1="7" x2="22" y2="7"></line>
+            </svg>
+        );
+
+        const Clock = ({ size = 24, className = "" }) => (
+            <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+        );
+
+        const SkipForward = ({ size = 24, className = "" }) => (
+            <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="5 4 15 12 5 20 5 4"></polygon>
+                <line x1="19" y1="5" x2="19" y2="19"></line>
+            </svg>
+        );
+
+        const List = ({ size = 24, className = "" }) => (
+            <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="8" y1="6" x2="21" y2="6"></line>
+                <line x1="8" y1="12" x2="21" y2="12"></line>
+                <line x1="8" y1="18" x2="21" y2="18"></line>
+                <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                <line x1="3" y1="18" x2="3.01" y2="18"></line>
+            </svg>
+        );
+
+        const MovieTriviaGame = () => {
+            const [gameState, setGameState] = useState('loading');
+            const [currentRound, setCurrentRound] = useState(0);
+            const [score, setScore] = useState(0);
+            const [currentMovie, setCurrentMovie] = useState(null);
+            const [choices, setChoices] = useState([]);
+            const [allMovies, setAllMovies] = useState([]);
+            const [isPlaying, setIsPlaying] = useState(false);
+            const [difficulty, setDifficulty] = useState('medium');
+            const [errorMessage, setErrorMessage] = useState('');
+            const [timeRemaining, setTimeRemaining] = useState(null);
+            const [loadingProgress, setLoadingProgress] = useState(0);
+            const [customTimer, setCustomTimer] = useState(30);
+            const [playerName, setPlayerName] = useState('');
+            const [showLeaderboard, setShowLeaderboard] = useState(false);
+            const [showNameInput, setShowNameInput] = useState(false);
+            const [gameStartTime, setGameStartTime] = useState(null);
+            const [totalGameTime, setTotalGameTime] = useState(0);
+            const [leaderboardData, setLeaderboardData] = useState([]);
+            
+            const totalRounds = 10;
+            const clipDuration = difficulty === 'easy' ? 20 : difficulty === 'medium' ? 15 : 10;
+            
+            const videoRef = useRef(new Audio());
+            const timerInterval = useRef(null);
+            const clipTimeout = useRef(null);
+            const [loadingDots, setLoadingDots] = useState(0);
+
+            useEffect(() => {
+                loadMovies();
+            }, []);
+
+            // Animated dots during loading
+            useEffect(() => {
+                if (gameState === 'loading') {
+                    const interval = setInterval(() => {
+                        setLoadingDots(prev => (prev + 1) % 4);
+                    }, 500);
+                    return () => clearInterval(interval);
+                }
+            }, [gameState]);
+
+            // Load leaderboard from server
+            const fetchLeaderboard = async () => {
+                try {
+                    const response = await fetch('/api/leaderboard');
+                    if (response.ok) {
+                        const data = await response.json();
+                        setLeaderboardData(data);
+                    }
+                } catch (error) {
+                    console.error('Error loading leaderboard:', error);
+                }
+            };
+
+            // Save score to server
+            const saveScore = async (playerName, score, difficulty, customTimer, totalTime) => {
+                try {
+                    const response = await fetch('/api/leaderboard', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            name: playerName,
+                            score: score,
+                            difficulty: difficulty,
+                            timer: customTimer,
+                            totalTime: totalTime
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        setLeaderboardData(data.leaderboard);
+                        return true;
+                    }
+                    return false;
+                } catch (error) {
+                    console.error('Error saving score:', error);
+                    return false;
+                }
+            };
+
+            // Load leaderboard on start
+            useEffect(() => {
+                fetchLeaderboard();
+            }, []);
+
+            const loadMovies = async () => {
+                try {
+                    setLoadingProgress(10);
+                    
+                    const response = await fetch('/api/plex/movies');
+                    setLoadingProgress(50);
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || `HTTP ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    setLoadingProgress(80);
+                    
+                    if (data.movies && data.movies.length > 0) {
+                        console.log(`Loaded ${data.movies.length} movies from Plex`);
+                        setAllMovies(data.movies);
+                        setLoadingProgress(100);
+                        setTimeout(() => setGameState('start'), 500);
+                    } else {
+                        throw new Error('No movies found in Plex library');
+                    }
+                } catch (error) {
+                    console.error('Failed to load Plex library:', error);
+                    setErrorMessage(`Failed to connect to Plex: ${error.message}`);
+                    setGameState('error');
+                }
+            };
+
+            const generateChoices = (correctMovie) => {
+                const wrongMovies = allMovies.filter(s => s.id !== correctMovie.id);
+                const shuffled = wrongMovies.sort(() => Math.random() - 0.5);
+                const selected = shuffled.slice(0, 3);
+                const allChoices = [...selected, correctMovie].sort(() => Math.random() - 0.5);
+                return allChoices;
+            };
+
+            const startGame = () => {
+                setGameState('playing');
+                setCurrentRound(1);
+                setScore(0);
+                setShowLeaderboard(false);
+                setGameStartTime(Date.now());
+                loadNewMovie();
+            };
+
+            const loadNewMovie = () => {
+                const randomMovie = allMovies[Math.floor(Math.random() * allMovies.length)];
+                setCurrentMovie(randomMovie);
+                setChoices(generateChoices(randomMovie));
+                setIsPlaying(false);
+                setTimeRemaining(customTimer);
+                setGameState('playing');
+            };
+
+            const startTimer = () => {
+                if (timerInterval.current) {
+                    clearInterval(timerInterval.current);
+                }
+                
+                timerInterval.current = setInterval(() => {
+                    setTimeRemaining(prev => {
+                        if (prev <= 1) {
+                            clearInterval(timerInterval.current);
+                            handleTimeout();
+                            return 0;
+                        }
+                        return prev - 1;
+                    });
+                }, 1000);
+            };
+
+            const handleTimeout = () => {
+                stopClip();
+                setGameState('wrong');
+                
+                setTimeout(() => {
+                    if (currentRound >= totalRounds) {
+                        const endTime = Date.now();
+                        const totalTime = (endTime - gameStartTime) / 1000; // Convert to seconds
+                        setTotalGameTime(totalTime);
+                        setShowNameInput(true);
+                        setGameState('ended');
+                    } else {
+                        setCurrentRound(currentRound + 1);
+                        loadNewMovie();
+                    }
+                }, 2500);
+            };
+
+            const playClip = () => {
+                if (!currentMovie?.videoPath) return;
+
+                const video = videoRef.current;
+                
+                // Clear any existing timeout
+                if (clipTimeout.current) {
+                    clearTimeout(clipTimeout.current);
+                    clipTimeout.current = null;
+                }
+                
+                video.src = `/api/plex/video${currentMovie.videoPath}`;
+                console.log('Setting video source:', video.src);
+                console.log('Video path:', currentMovie.videoPath);
+                
+                // Add error handler - reload new question without penalty
+                video.addEventListener('error', (e) => {
+                    console.error('Video error:', e);
+                    console.error('Video error code:', video.error?.code);
+                    console.error('Video error message:', video.error?.message);
+                    console.warn('Video failed to load, loading new question without penalty');
+                    
+                    // Stop any timers
+                    if (timerInterval.current) {
+                        clearInterval(timerInterval.current);
+                    }
+                    if (clipTimeout.current) {
+                        clearTimeout(clipTimeout.current);
+                    }
+                    
+                    // Load a new movie without penalty
+                    setIsPlaying(false);
+                    loadNewMovie();
+                }, { once: true });
+                
+                video.addEventListener('loadedmetadata', () => {
+                    console.log('Video metadata loaded, duration:', video.duration);
+                    const duration = video.duration;
+                    const skipStart = 120; // Skip first 2 minutes (intro/credits)
+                    const skipEnd = 120; // Skip last 2 minutes (credits)
+                    const maxStart = Math.max(skipStart, duration - clipDuration - skipEnd);
+                    const randomStart = skipStart + (Math.random() * (maxStart - skipStart));
+                    console.log('Setting video start time:', randomStart);
+                    video.currentTime = randomStart;
+                    video.play().catch(err => {
+                        console.error('Play failed:', err);
+                        alert('Failed to play video: ' + err.message);
+                    });
+                }, { once: true });
+
+                // Start timer and clip timeout when video actually starts playing
+                video.addEventListener('playing', () => {
+                    console.log('Video is playing');
+                    setIsPlaying(true);
+                    startTimer();
+                    
+                    // Stop after exact clip duration
+                    clipTimeout.current = setTimeout(() => {
+                        console.log('Clip duration reached, stopping');
+                        video.pause();
+                        setIsPlaying(false);
+                    }, clipDuration * 1000);
+                }, { once: true });
+
+                console.log('Calling video.load()');
+                video.load();
+            };
+
+            const stopClip = () => {
+                // Clear clip timeout
+                if (clipTimeout.current) {
+                    clearTimeout(clipTimeout.current);
+                    clipTimeout.current = null;
+                }
+                
+                videoRef.current.pause();
+                setIsPlaying(false);
+            };
+
+            const handleAnswer = (movie) => {
+                stopClip();
+                if (timerInterval.current) {
+                    clearInterval(timerInterval.current);
+                }
+                
+                if (movie.id === currentMovie.id) {
+                    setScore(score + 1);
+                    setGameState('correct');
+                } else {
+                    setGameState('wrong');
+                }
+
+                setTimeout(() => {
+                    if (currentRound >= totalRounds) {
+                        const endTime = Date.now();
+                        const totalTime = (endTime - gameStartTime) / 1000; // Convert to seconds
+                        setTotalGameTime(totalTime);
+                        setShowNameInput(true);
+                        setGameState('ended');
+                    } else {
+                        setCurrentRound(currentRound + 1);
+                        loadNewMovie();
+                    }
+                }, 2500);
+            };
+
+            const handleSkip = () => {
+                stopClip();
+                if (timerInterval.current) {
+                    clearInterval(timerInterval.current);
+                }
+                
+                setGameState('wrong');
+                
+                setTimeout(() => {
+                    if (currentRound >= totalRounds) {
+                        const endTime = Date.now();
+                        const totalTime = (endTime - gameStartTime) / 1000; // Convert to seconds
+                        setTotalGameTime(totalTime);
+                        setShowNameInput(true);
+                        setGameState('ended');
+                    } else {
+                        setCurrentRound(currentRound + 1);
+                        loadNewMovie();
+                    }
+                }, 2500);
+            };
+
+            const handleSaveScore = async () => {
+                if (playerName.trim()) {
+                    const success = await saveScore(playerName.trim(), score, difficulty, customTimer, totalGameTime);
+                    if (success) {
+                        setShowNameInput(false);
+                        setShowLeaderboard(true);
+                    }
+                }
+            };
+
+            const restartGame = () => {
+                stopClip();
+                if (timerInterval.current) {
+                    clearInterval(timerInterval.current);
+                }
+                if (clipTimeout.current) {
+                    clearTimeout(clipTimeout.current);
+                }
+                // Reset all game state
+                setGameState('start');
+                setCurrentRound(0);
+                setScore(0);
+                setPlayerName('');
+                setShowNameInput(false);
+                setShowLeaderboard(false);
+                setCurrentMovie(null);
+                setChoices([]);
+                setIsPlaying(false);
+                setTimeRemaining(null);
+            };
+
+            const applyDifficultyPreset = (level) => {
+                setDifficulty(level);
+                if (level === 'easy') setCustomTimer(45);
+                else if (level === 'medium') setCustomTimer(30);
+                else setCustomTimer(20);
+            };
+
+            useEffect(() => {
+                return () => {
+                    videoRef.current.pause();
+                    if (timerInterval.current) {
+                        clearInterval(timerInterval.current);
+                    }
+                    if (clipTimeout.current) {
+                        clearTimeout(clipTimeout.current);
+                    }
+                };
+            }, []);
+
+            // Loading screen
+            if (gameState === 'loading') {
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-800 to-pink-700 flex items-center justify-center">
+                        <div className="text-center">
+                            <div className="film-strip w-32 h-32 rounded-lg mx-auto mb-6 animate-spin-slow flex items-center justify-center"><Film size={64} className="text-white" /></div>
+                            <p className="text-2xl text-white title-font mb-6">
+                                Loading your movie library{'.'.repeat(loadingDots)}
+                            </p>
+                            
+                            <div className="w-80 mx-auto">
+                                <div className="bg-white bg-opacity-20 h-4 rounded-full overflow-hidden mb-3 loading-shimmer">
+                                    <div 
+                                        className="bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 h-full transition-all duration-500 ease-out rounded-full relative"
+                                        style={{ width: `${loadingProgress}%` }}
+                                    >
+                                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-30 animate-pulse"></div>
+                                    </div>
+                                </div>
+                                <p className="text-white text-opacity-70 text-sm animate-pulse">{loadingProgress}%</p>
+                            </div>
+                            
+                            {loadingProgress === 10 && (
+                                <p className="text-pink-200 text-sm mt-4 animate-pulse">Connecting to Plex server...</p>
+                            )}
+                            {loadingProgress === 50 && (
+                                <p className="text-pink-200 text-sm mt-4 animate-pulse">Loading track library...</p>
+                            )}
+                            {loadingProgress === 80 && (
+                                <p className="text-pink-200 text-sm mt-4 animate-pulse">Almost there...</p>
+                            )}
+                        </div>
+                    </div>
+                );
+            }
+
+            // Error screen
+            if (gameState === 'error') {
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-800 to-pink-700 flex items-center justify-center p-4">
+                        <div className="bg-white bg-opacity-10 backdrop-blur-lg rounded-3xl p-12 max-w-2xl text-center">
+                            <div className="text-6xl mb-6">⚠️</div>
+                            <h2 className="title-font text-4xl text-white mb-4">Connection Error</h2>
+                            <p className="text-xl text-pink-200 mb-8">{errorMessage}</p>
+                            <div className="text-left text-white text-opacity-80 bg-black bg-opacity-30 rounded-xl p-6 mb-6">
+                                <p className="mb-2"><strong>Troubleshooting:</strong></p>
+                                <ul className="list-disc list-inside space-y-1 text-sm">
+                                    <li>Make sure your Plex server is running</li>
+                                    <li>Check that PLEX_URL and PLEX_TOKEN are set correctly</li>
+                                    <li>Verify your Plex server is accessible at the configured URL</li>
+                                    <li>Ensure you have at least one movie library in Plex</li>
+                                </ul>
+                            </div>
+                            <button
+                                onClick={loadMovies}
+                                className="bg-white text-purple-600 px-8 py-4 rounded-full font-bold text-lg hover:scale-110 transition-transform"
+                            >
+                                Try Again
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            // Leaderboard view
+            if (showLeaderboard && gameState !== 'playing') {
+                const formatTime = (seconds) => {
+                    const mins = Math.floor(seconds / 60);
+                    const secs = Math.floor(seconds % 60);
+                    return `${mins}:${secs.toString().padStart(2, '0')}`;
+                };
+                
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-800 to-pink-700 flex items-center justify-center p-4">
+                        <div className="bg-white bg-opacity-10 backdrop-blur-lg rounded-3xl p-8 max-w-3xl w-full">
+                            <div className="flex items-center justify-center gap-4 mb-8">
+                                <Trophy className="text-yellow-400 animate-float" size={64} />
+                                <h2 className="title-font text-5xl text-white">LEADERBOARD</h2>
+                            </div>
+                            
+                            {leaderboardData.length === 0 ? (
+                                <p className="text-center text-pink-200 text-xl mb-8">No scores yet! Be the first to play!</p>
+                            ) : (
+                                <div className="space-y-3 mb-8">
+                                    {leaderboardData.map((entry, index) => (
+                                        <div key={index} className="bg-white bg-opacity-20 rounded-xl p-4 flex items-center gap-4">
+                                            <div className={`text-3xl font-bold title-font w-12 text-center ${
+                                                index === 0 ? 'text-yellow-400' : 
+                                                index === 1 ? 'text-gray-300' : 
+                                                index === 2 ? 'text-orange-400' : 'text-white'
+                                            }`}>
+                                                #{index + 1}
+                                            </div>
+                                            <div className="flex-1">
+                                                <div className="text-white font-bold text-xl">{entry.name}</div>
+                                                <div className="text-pink-200 text-sm">
+                                                    {entry.difficulty} • {entry.timer}s timer • Time: {formatTime(entry.totalTime)}
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className="text-3xl font-bold text-white title-font">{entry.score}/10</div>
+                                                <div className="text-pink-200 text-xs">{new Date(entry.date).toLocaleDateString()}</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            
+                            <button
+                                onClick={() => setShowLeaderboard(false)}
+                                className="bg-white text-purple-600 px-8 py-4 rounded-full font-bold text-lg hover:scale-110 transition-transform w-full"
+                            >
+                                Back to Menu
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-800 to-pink-700 flex items-center justify-center p-4 font-sans">
+                    {/* Floating music notes background */}
+                    <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-10">
+                        {[...Array(20)].map((_, i) => (
+                            <Film
+                                key={i}
+                                className="absolute text-white animate-float"
+                                style={{
+                                    left: `${Math.random() * 100}%`,
+                                    top: `${Math.random() * 100}%`,
+                                    fontSize: `${Math.random() * 30 + 20}px`,
+                                    animationDelay: `${Math.random() * 5}s`,
+                                }}
+                            />
+                        ))}
+                    </div>
+
+                    <div className="relative z-10 w-full max-w-4xl">
+                        {/* Start Screen */}
+                        {gameState === 'start' && (
+                            <div className="text-center animate-slide-up">
+                                <div className="film-strip w-48 h-48 rounded-lg mx-auto mb-8 flex items-center justify-center"><Film size={96} className="text-white animate-pulse" /></div>
+                                <h1 className="title-font text-7xl font-bold text-white mb-4 drop-shadow-2xl">
+                                    SCENE THAT PLEX!
+                                </h1>
+                                <p className="text-2xl text-pink-200 mb-2">Movie Trivia Challenge</p>
+                                <p className="text-lg text-pink-300 mb-12">🎬 Powered by your Plex library • {allMovies.length} movies loaded</p>
+                                
+                                <div className="bg-white bg-opacity-10 backdrop-blur-lg rounded-3xl p-8 mb-6 border-4 border-white border-opacity-20">
+                                    <h3 className="title-font text-2xl text-white mb-6">Choose Difficulty</h3>
+                                    <div className="flex gap-4 justify-center flex-wrap mb-6">
+                                        {['easy', 'medium', 'hard'].map((level) => (
+                                            <button
+                                                key={level}
+                                                onClick={() => applyDifficultyPreset(level)}
+                                                className={`px-8 py-4 rounded-xl font-bold text-lg uppercase tracking-wider transition-all ${
+                                                    difficulty === level
+                                                        ? 'bg-gradient-to-r from-pink-500 to-orange-500 text-white scale-110 shadow-2xl'
+                                                        : 'bg-white bg-opacity-20 text-white hover:bg-opacity-30'
+                                                }`}
+                                            >
+                                                {level}
+                                                <div className="text-xs mt-1 opacity-80">
+                                                    {level === 'easy' ? '20s clips • 45s' : level === 'medium' ? '15s clips • 30s' : '10s clips • 20s'}
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                    
+                                    <div className="border-t border-white border-opacity-20 pt-6">
+                                        <h4 className="text-white text-lg mb-4">Custom Timer: <span className="text-pink-300 font-bold">{customTimer}s</span></h4>
+                                        <input
+                                            type="range"
+                                            min="10"
+                                            max="60"
+                                            value={customTimer}
+                                            onChange={(e) => setCustomTimer(parseInt(e.target.value))}
+                                            className="w-full h-2 bg-white bg-opacity-20 rounded-lg appearance-none cursor-pointer"
+                                        />
+                                        <div className="flex justify-between text-white text-opacity-60 text-sm mt-2">
+                                            <span>10s</span>
+                                            <span>60s</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-4 justify-center mb-8">
+                                    <button
+                                        onClick={startGame}
+                                        className="bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 text-white px-16 py-6 rounded-full text-2xl font-bold hover:scale-110 transition-transform shadow-2xl animate-pulse-ring"
+                                    >
+                                        START GAME
+                                    </button>
+                                    
+                                    <button
+                                        onClick={() => setShowLeaderboard(true)}
+                                        className="bg-white bg-opacity-20 text-white px-12 py-6 rounded-full text-2xl font-bold hover:scale-110 transition-transform shadow-2xl flex items-center gap-3"
+                                    >
+                                        <List size={28} /> LEADERBOARD
+                                    </button>
+                                </div>
+
+                                <div className="text-white text-opacity-70 text-sm">
+                                    <p className="mb-2">🎬 Watch clips from your movie library and guess the film!</p>
+                                    <p>💯 {totalRounds} rounds • Timer starts when you play • Score points for correct answers</p>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Game Screen */}
+                        {gameState === 'playing' && currentMovie && (
+                            <div className="animate-slide-up">
+                                <div className="flex justify-between items-center mb-8 bg-white bg-opacity-10 backdrop-blur-lg rounded-2xl p-6 border-2 border-white border-opacity-20">
+                                    <div className="flex items-center gap-4">
+                                        <Trophy className="text-yellow-400" size={32} />
+                                        <div>
+                                            <div className="text-5xl font-bold text-white title-font">{score}</div>
+                                            <div className="text-sm text-pink-200">points</div>
+                                        </div>
+                                    </div>
+                                    <div className="text-center">
+                                        <div className={`text-6xl font-bold title-font ${
+                                            timeRemaining === null ? 'text-gray-400' :
+                                            timeRemaining <= 5 ? 'text-red-400 animate-pulse' : 
+                                            timeRemaining <= 10 ? 'text-yellow-400' : 'text-white'
+                                        }`}>
+                                            {timeRemaining === null ? '--' : timeRemaining}
+                                        </div>
+                                        <div className="text-sm text-pink-200 flex items-center justify-center gap-1">
+                                            <Clock size={16} /> {timeRemaining === null ? 'Press Play' : 'seconds left'}
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-3xl font-bold text-white title-font">
+                                            Round {currentRound}/{totalRounds}
+                                        </div>
+                                        <div className="text-sm text-pink-200 uppercase tracking-wide">{difficulty} mode</div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-gradient-to-br from-purple-600 to-pink-600 rounded-3xl p-8 mb-8 shadow-2xl border-4 border-white border-opacity-20">
+                                    <div className="flex flex-col items-center">
+                                        <div className="w-full max-w-3xl aspect-video bg-black rounded-xl overflow-hidden mb-6 relative">
+                                            <video
+                                                ref={videoRef}
+                                                className="w-full h-full object-contain"
+                                                playsInline
+                                                preload="metadata"
+                                            />
+                                            {!isPlaying && (
+                                                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
+                                                    <Film className="text-white opacity-40" size={96} />
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="flex gap-4">
+                                            <button
+                                                onClick={isPlaying ? stopClip : playClip}
+                                                className="bg-white text-purple-600 px-12 py-5 rounded-full font-bold text-xl flex items-center gap-3 hover:scale-110 transition-transform shadow-xl"
+                                            >
+                                                {isPlaying ? (
+                                                    <>
+                                                        <Pause size={28} /> PAUSE
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Play size={28} /> PLAY CLIP
+                                                    </>
+                                                )}
+                                            </button>
+
+                                            <button
+                                                onClick={handleSkip}
+                                                className="bg-red-500 text-white px-8 py-5 rounded-full font-bold text-xl flex items-center gap-3 hover:scale-110 transition-transform shadow-xl"
+                                            >
+                                                <SkipForward size={28} /> SKIP
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {choices.map((movie, index) => (
+                                        <button
+                                            key={movie.id}
+                                            onClick={() => handleAnswer(movie)}
+                                            className="choice-btn bg-white bg-opacity-90 backdrop-blur-sm rounded-2xl p-6 text-left hover:bg-opacity-100 border-4 border-transparent hover:border-pink-400 animate-slide-up"
+                                            style={{ animationDelay: `${index * 0.1}s` }}
+                                        >
+                                            <div className="flex items-start gap-4">
+                                                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center text-white font-bold text-xl title-font flex-shrink-0">
+                                                    {String.fromCharCode(65 + index)}
+                                                </div>
+                                                <div className="flex-1">
+                                                    <div className="font-bold text-xl text-gray-800 mb-1">{movie.title}</div>
+                                                    <div className="text-gray-600">{movie.year || 'Year Unknown'}</div>
+                                                </div>
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Correct Answer */}
+                        {gameState === 'correct' && currentMovie && (
+                            <div className="text-center animate-slide-up">
+                                <div className="bg-gradient-to-br from-green-400 to-emerald-600 rounded-3xl p-12 shadow-2xl border-4 border-white border-opacity-30">
+                                    <div className="text-8xl mb-6 animate-float">🎉</div>
+                                    <h2 className="title-font text-6xl font-bold text-white mb-4">CORRECT!</h2>
+                                    <div className="bg-white bg-opacity-20 rounded-2xl p-6 mt-6">
+                                        <div className="text-3xl font-bold text-white mb-2">{currentMovie.title}</div>
+                                        <div className="text-xl text-green-100">{currentMovie.artist}</div>
+                                        <div className="text-green-200 mt-2">{currentMovie.album}{currentMovie.year ? ` • ${currentMovie.year}` : ''}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Wrong Answer */}
+                        {gameState === 'wrong' && currentMovie && (
+                            <div className="text-center animate-slide-up">
+                                <div className="bg-gradient-to-br from-red-500 to-pink-600 rounded-3xl p-12 shadow-2xl border-4 border-white border-opacity-30">
+                                    <div className="text-8xl mb-6">😢</div>
+                                    <h2 className="title-font text-6xl font-bold text-white mb-4">NOT QUITE!</h2>
+                                    <div className="bg-white bg-opacity-20 rounded-2xl p-6 mt-6">
+                                        <p className="text-xl text-red-100 mb-4">The correct answer was:</p>
+                                        <div className="text-3xl font-bold text-white mb-2">{currentMovie.title}</div>
+                                        <div className="text-xl text-red-100">{currentMovie.artist}</div>
+                                        <div className="text-red-200 mt-2">{currentMovie.album}{currentMovie.year ? ` • ${currentMovie.year}` : ''}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Game Over - Name Input */}
+                        {gameState === 'ended' && showNameInput && (
+                            <div className="text-center animate-slide-up">
+                                <div className="bg-gradient-to-br from-purple-600 to-pink-600 rounded-3xl p-12 shadow-2xl border-4 border-white border-opacity-30">
+                                    <Trophy className="mx-auto text-yellow-400 mb-6 animate-float" size={120} />
+                                    <h2 className="title-font text-6xl font-bold text-white mb-6">GAME OVER!</h2>
+                                    <div className="text-8xl font-bold text-white mb-8 title-font">{score}/{totalRounds}</div>
+                                    
+                                    <div className="bg-white bg-opacity-20 rounded-2xl p-6 mb-6">
+                                        <p className="text-white text-xl mb-4">Enter your name for the leaderboard:</p>
+                                        <input
+                                            type="text"
+                                            value={playerName}
+                                            onChange={(e) => setPlayerName(e.target.value)}
+                                            onKeyPress={(e) => e.key === 'Enter' && handleSaveScore()}
+                                            placeholder="Your name..."
+                                            maxLength={20}
+                                            className="w-full px-6 py-4 rounded-xl text-2xl text-center font-bold bg-white text-purple-600 placeholder-purple-300 focus:outline-none focus:ring-4 focus:ring-pink-400"
+                                        />
+                                    </div>
+                                    
+                                    <div className="flex gap-4 justify-center">
+                                        <button
+                                            onClick={handleSaveScore}
+                                            disabled={!playerName.trim()}
+                                            className="bg-white text-purple-600 px-12 py-6 rounded-full font-bold text-2xl hover:scale-110 transition-transform shadow-xl disabled:opacity-50 disabled:hover:scale-100"
+                                        >
+                                            SAVE SCORE
+                                        </button>
+                                        
+                                        <button
+                                            onClick={restartGame}
+                                            className="bg-white bg-opacity-20 text-white px-12 py-6 rounded-full font-bold text-2xl hover:scale-110 transition-transform shadow-xl flex items-center gap-3"
+                                        >
+                                            <RotateCcw size={32} /> SKIP
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Game Over - After Save */}
+                        {gameState === 'ended' && !showNameInput && !showLeaderboard && (
+                            <div className="text-center animate-slide-up">
+                                <div className="bg-gradient-to-br from-purple-600 to-pink-600 rounded-3xl p-12 shadow-2xl border-4 border-white border-opacity-30">
+                                    <Trophy className="mx-auto text-yellow-400 mb-6 animate-float" size={120} />
+                                    <h2 className="title-font text-6xl font-bold text-white mb-6">GAME OVER!</h2>
+                                    <div className="text-8xl font-bold text-white mb-4 title-font">{score}/{totalRounds}</div>
+                                    <p className="text-3xl text-pink-200 mb-8">
+                                        {score === totalRounds
+                                            ? "PERFECT SCORE! 🎬"
+                                            : score >= totalRounds * 0.7
+                                            ? "Amazing! You know your movies! 🍿"
+                                            : score >= totalRounds * 0.5
+                                            ? "Good job! Keep watching! 🎥"
+                                            : "Nice try! Keep watching! 🎥"}
+                                    </p>
+                                    <div className="flex gap-4 justify-center">
+                                        <button
+                                            onClick={restartGame}
+                                            className="bg-white text-purple-600 px-12 py-6 rounded-full font-bold text-2xl hover:scale-110 transition-transform shadow-xl flex items-center gap-3"
+                                        >
+                                            <RotateCcw size={32} /> PLAY AGAIN
+                                        </button>
+                                        
+                                        <button
+                                            onClick={() => setShowLeaderboard(true)}
+                                            className="bg-white bg-opacity-20 text-white px-12 py-6 rounded-full font-bold text-2xl hover:scale-110 transition-transform shadow-xl flex items-center gap-3"
+                                        >
+                                            <List size={32} /> LEADERBOARD
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<MovieTriviaGame />);
+    </script>
+</body>
+</html>
