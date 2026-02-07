@@ -25,6 +25,8 @@ A web-based movie trivia game using your Plex movie library. Watch video clips a
 
 ### Get Your Plex Token
 
+If you have Plex Desktop you can find it in 'C:\Users\[USER]\AppData\Local\Plex\Plex Media Server\Preferences.xml'.
+OR
 1. Go to https://app.plex.tv and play any media
 2. Click the menu (⋯) → "Get Info" → "View XML"
 3. Copy the token from the URL: `X-Plex-Token=YOUR_TOKEN`
@@ -105,9 +107,11 @@ ports:
   - "8080:3001"  # Use port 8080 instead
 ```
 
-## Companion App
+## Companion Apps
 
 Check out the music version: [Plex-Music-Trivia-Game](https://github.com/whosliam/Plex-Music-Trivia-Game)
+Check out the TV version: [Plex-TV-Trivia-Game](https://github.com/whosliam/Plex-TV-Trivia_game)
+
 
 ## License
 
