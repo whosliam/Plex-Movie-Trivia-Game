@@ -99,7 +99,6 @@ http://YOUR_HOST_IP:3001
 **Video not playing:**
 - Check browser console for errors
 - View Docker logs: `docker-compose logs`
-- Try a different browser (Chrome/Firefox recommended)
 
 **Port conflict:**
 ```yaml
