@@ -430,16 +430,17 @@
                 video.load();
             };
 
-            const stopClip = () => {
-                // Clear clip timeout
-                if (clipTimeout.current) {
-                    clearTimeout(clipTimeout.current);
-                    clipTimeout.current = null;
-                }
-                
-                videoRef.current.pause();
-                setIsPlaying(false);
-            };
+			const stopClip = () => {
+				if (clipTimeout.current) {
+					clearTimeout(clipTimeout.current);
+					clipTimeout.current = null;
+				}
+				
+				if (videoRef.current) {
+					videoRef.current.pause();
+				}
+				setIsPlaying(false);
+			};
 
             const handleAnswer = (movie) => {
                 stopClip();
@@ -468,28 +469,30 @@
                 }, 2500);
             };
 
-            const handleSkip = () => {
-                stopClip();
-                if (timerInterval.current) {
-                    clearInterval(timerInterval.current);
-                }
-                
-                setGameState('wrong');
-                
-                setTimeout(() => {
-                    if (currentRound >= totalRounds) {
-                        const endTime = Date.now();
-                        const totalTime = (endTime - gameStartTime) / 1000; // Convert to seconds
-                        setTotalGameTime(totalTime);
-                        setShowNameInput(true);
-                        setGameState('ended');
-                    } else {
-                        setCurrentRound(currentRound + 1);
-                        loadNewMovie();
-                    }
-                }, 2500);
-            };
-
+			const handleSkip = () => {
+				stopClip();
+				if (timerInterval.current) {
+					clearInterval(timerInterval.current);
+				}
+				
+				setGameState('wrong');
+				
+				setTimeout(() => {
+					setCurrentRound(prev => {
+						if (prev >= totalRounds) {
+							const endTime = Date.now();
+							const totalTime = (endTime - gameStartTime) / 1000;
+							setTotalGameTime(totalTime);
+							setShowNameInput(true);
+							setGameState('ended');
+							return prev;
+						} else {
+							loadNewMovie();
+							return prev + 1;
+						}
+					});
+				}, 2500);
+			};
             const handleSaveScore = async () => {
                 if (playerName.trim()) {
                     const success = await saveScore(playerName.trim(), score, difficulty, customTimer, totalGameTime);
@@ -500,26 +503,22 @@
                 }
             };
 
-            const restartGame = () => {
-                stopClip();
-                if (timerInterval.current) {
-                    clearInterval(timerInterval.current);
-                }
-                if (clipTimeout.current) {
-                    clearTimeout(clipTimeout.current);
-                }
-                // Reset all game state
-                setGameState('start');
-                setCurrentRound(0);
-                setScore(0);
-                setPlayerName('');
-                setShowNameInput(false);
-                setShowLeaderboard(false);
-                setCurrentMovie(null);
-                setChoices([]);
-                setIsPlaying(false);
-                setTimeRemaining(null);
-            };
+			const restartGame = () => {
+				stopClip();
+				if (timerInterval.current) clearInterval(timerInterval.current);
+				if (clipTimeout.current) clearTimeout(clipTimeout.current);
+				
+				setCurrentMovie(null);
+				setChoices([]);
+				setIsPlaying(false);
+				setTimeRemaining(null);
+				setCurrentRound(0);
+				setScore(0);
+				setPlayerName('');
+				setShowNameInput(false);
+				setShowLeaderboard(false);
+				setGameState('start');
+			};
 
             const applyDifficultyPreset = (level) => {
                 setDifficulty(level);
@@ -683,7 +682,7 @@
                             <div className="text-center animate-slide-up">
                                 <div className="film-strip w-48 h-48 rounded-lg mx-auto mb-8 flex items-center justify-center"><Film size={96} className="text-white animate-pulse" /></div>
                                 <h1 className="title-font text-7xl font-bold text-white mb-4 drop-shadow-2xl">
-                                    SCENE THAT PLEX!
+                                    Plex Movie Trivia!
                                 </h1>
                                 <p className="text-2xl text-pink-200 mb-2">Movie Trivia Challenge</p>
                                 <p className="text-lg text-pink-300 mb-12">🎬 Powered by your Plex library • {allMovies.length} movies loaded</p>
